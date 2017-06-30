@@ -5,10 +5,11 @@
             "includePath": [],
             "defines": [],
             "browse": {
-                "path": [],
+                "path": ["/usr/include", "/usr/local/include"],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
-            }
+            },
+            "intelliSenseMode": "clang-x64"
         }
     ]
 }

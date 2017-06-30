@@ -1,6 +1,11 @@
 {
     "files.associations": {
         "cstdlib": "cpp",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "*.tcc": "cpp",
+        "initializer_list": "cpp",
+        "utility": "cpp",
+        "cmath": "cpp",
+        "complex": "cpp"
     }
 }

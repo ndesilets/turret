@@ -43,7 +43,7 @@ void preProcessFrame(cv::Mat *frame){
 
 void processVideo5(){
 	const char *fname = "VID_20170629_214429.mp4";
-	cv::Ptr<cv::Tracker> tracker = cv::Tracker::create("KCF");
+	//cv::Ptr<cv::Tracker> tracker = cv::Tracker::create("KCF");
 	cv::Ptr<cv::BackgroundSubtractor> pMOG2;
 	cv::Mat frame;
 	cv::Mat pFrame;
@@ -51,9 +51,9 @@ void processVideo5(){
 	//Rect2d target;
 	char keyboard;
 
-	pMOG2 = cv::createBackgroundSubtractorMOG2(
-		500,	// history (500)
-		16,		// threshold (16)
+	pMOG2 = cv::createBackgroundSubtractorKNN(
+		64,	// history (500)
+		64,		// threshold (16)
 		true	// detectShadows (true)
 	);
 
@@ -85,7 +85,7 @@ void processVideo5(){
 
 		pMOG2->apply(procFrame, fgMaskMOG2);
 		threshold(fgMaskMOG2, fgMaskMOG2, 128, 255, CV_THRESH_BINARY);	
-		//dilate(fgMaskMOG2, fgMaskMOG2, cv::MORPH_RECT);	
+		dilate(fgMaskMOG2, fgMaskMOG2, cv::MORPH_RECT);	
 
 		// --- Find bounding boxes 
 
@@ -97,8 +97,8 @@ void processVideo5(){
 
 		// Group contours
 
-		//cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_CROSS, //cv::Size(32, 32));
-		//cv::morphologyEx(fgMaskMOG2, fgMaskMOG2, cv::MORPH_CLOSE, structuringElement);
+		cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_ELLIPSE	, cv::Size(32, 32));
+		cv::morphologyEx(fgMaskMOG2, fgMaskMOG2, cv::MORPH_CLOSE, structuringElement);
 
 		// Find bounding box for each polygon (from contours)
 

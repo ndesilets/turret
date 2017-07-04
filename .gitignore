@@ -3,3 +3,7 @@ CMakeFiles/*
 *.cmake
 *.swp
 cam
+*.MOV
+*.mov
+*.mp4
+*.MP4

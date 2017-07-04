@@ -11,7 +11,9 @@
 #include <chrono>
 #include <cmath>
 
-//using namespace cv;
+#define MIN_THRES 12
+
+using namespace cv;
 using namespace std;
 using namespace std::chrono;
 
@@ -27,39 +29,44 @@ void splitFrame();*/
 int main(int argc, char *argv[]){
 	//processVideo4();
 
+	namedWindow("raw", CV_WINDOW_NORMAL);
+	namedWindow("mask", CV_WINDOW_NORMAL);
+	namedWindow("contours", CV_WINDOW_NORMAL);
+
+	resizeWindow("raw", 640, 360);
+	resizeWindow("mask", 640, 360);
+	resizeWindow("contours", 640, 360);
+
+	moveWindow("raw", 0, 0);
+	moveWindow("mask", (640), 0);
+	moveWindow("contours", (640) * 2, 0);
+
 	processVideo5();
 
-	cv::destroyAllWindows();
+	destroyAllWindows();
 
 	return EXIT_SUCCESS;
 }
 
-void preProcessFrame(cv::Mat *frame){
-	//cv::cvtColor(*frame, *frame, CV_RGB2GRAY);
-	//cv::resize(*frame, *frame, cv::Size(640, 360));
-	cv::blur(*frame, *frame, cv::Size(8, 8));
-	//frame->convertTo(10, 1, CV_8UC1, 10);
-}
-
 void processVideo5(){
-	const char *fname = "VID_20170629_214429.mp4";
-	cv::Ptr<cv::Tracker> tracker = cv::Tracker::create("KCF");
-	cv::Ptr<cv::BackgroundSubtractor> pMOG2;
-	cv::Mat frame;
-	cv::Mat pFrame;
-	cv::Mat fgMaskMOG2;
+	const char *fname = "MVI_3766.MOV";
+	Ptr<Tracker> tracker = Tracker::create("KCF");
+	Ptr<BackgroundSubtractor> pMOG2;
+	Mat frame;
+	Mat pFrame;
+	Mat fgMaskMOG2;
 	//Rect2d target;
 	char keyboard;
 
-	pMOG2 = cv::createBackgroundSubtractorMOG2(
-		500,	// history (500)
-		16,		// threshold (16)
-		true	// detectShadows (true)
+	pMOG2 = createBackgroundSubtractorMOG2(
+		1024,	// history (500)
+		64,		// threshold (16)
+		false	// detectShadows (true)
 	);
 
-	cv::VideoCapture capture(fname);
+	VideoCapture capture(fname);
 
-	// --- Timing stuff
+	// --- Init timing stuff
 
 	milliseconds t0 = duration_cast<milliseconds>(
     system_clock::now().time_since_epoch());
@@ -67,11 +74,11 @@ void processVideo5(){
 	// --- Main loop
 
 	while(1){
-		const int frameNum = capture.get(cv::CAP_PROP_POS_FRAMES);
-		cv::Mat procFrame;
+		const int frameNum = capture.get(CAP_PROP_POS_FRAMES);
+		Mat procFrame;
 
 		if(!capture.read(frame)){
-			cerr << "Unable to read next frame." << endl;
+			cerr << "End of stream." << endl;
 			return;
 		}
 
@@ -79,77 +86,81 @@ void processVideo5(){
 
 		procFrame  = frame.clone();
 
-		preProcessFrame(&procFrame);
+		cvtColor(procFrame, procFrame, CV_RGB2GRAY);
+		blur(procFrame, procFrame, Size(16, 16));
 
 		// --- Motion detection
 
 		pMOG2->apply(procFrame, fgMaskMOG2);
 		threshold(fgMaskMOG2, fgMaskMOG2, 128, 255, CV_THRESH_BINARY);	
-		//dilate(fgMaskMOG2, fgMaskMOG2, cv::MORPH_RECT);	
+		dilate(fgMaskMOG2, fgMaskMOG2, MORPH_RECT);	
 
 		// --- Find bounding boxes 
 
+		// Group motion blobs
+
+		//Mat erodeStrEl = getStructuringElement(MORPH_CROSS, Size(8, 8));
+		//Mat dilateStrEl = getStructuringElement(MORPH_CROSS, Size(8, 8));
+		//Mat structuringElement = getStructuringElement(MORPH_RECT, Size(32, 32));
+	    //morphologyEx(fgMaskMOG2, fgMaskMOG2, MORPH_DILATE, dilateStrEl);
+		//morphologyEx(fgMaskMOG2, fgMaskMOG2, MORPH_CLOSE, structuringElement);
+
 		// Find contours
 
-		vector<vector<cv::Point>> contours;
-		vector<cv::Vec4i> hierarchy;
-		cv::findContours(fgMaskMOG2, contours, hierarchy, cv::RETR_TREE, cv::CHAIN_APPROX_SIMPLE, cv::Point(0, 0));
-
-		// Group contours
-
-		//cv::Mat structuringElement = cv::getStructuringElement(cv::MORPH_CROSS, //cv::Size(32, 32));
-		//cv::morphologyEx(fgMaskMOG2, fgMaskMOG2, cv::MORPH_CLOSE, structuringElement);
+		vector<vector<Point>> contours;
+		vector<Vec4i> hierarchy;
+		findContours(fgMaskMOG2, contours, hierarchy, RETR_EXTERNAL, CHAIN_APPROX_SIMPLE, Point(0, 0));
 
 		// Find bounding box for each polygon (from contours)
 
-		vector<vector<cv::Point>> contours_poly(contours.size());
-  		vector<cv::Rect> boundRect(contours.size());
-  		vector<cv::Point2f> center(contours.size());
+		vector<vector<Point>> contours_poly(contours.size());
+  		vector<Rect> boundRect(contours.size());
+  		vector<Point2f> center(contours.size());
 		vector<float> radius(contours.size());
 
 		for(int i = 0; i < contours.size(); i++){
-			cv::approxPolyDP(cv::Mat(contours[i]), contours_poly[i], 3, true);
-			boundRect[i] = boundingRect(cv::Mat(contours_poly[i]));
-			cv::minEnclosingCircle(contours_poly[i], center[i], radius[i]);
+			approxPolyDP(Mat(contours[i]), contours_poly[i], 3, true);
+			boundRect[i] = boundingRect(Mat(contours_poly[i]));
+			minEnclosingCircle(contours_poly[i], center[i], radius[i]);
 		}
 
-		cv::Mat drawing = cv::Mat::zeros(procFrame.size(), CV_8UC3);
+		Mat drawing = Mat::zeros(procFrame.size(), CV_8UC3);
 
 		for(int i = 0; i < contours.size(); i++){
-			cv::Scalar color = cv::Scalar(0, 255, 0);
-			cv::Scalar color2 = cv::Scalar(0, 0, 255);
-			cv::drawContours(drawing, contours_poly, (int)i, color, 1, 8, vector<cv::Vec4i>(), 0, cv::Point());
+			Scalar color = Scalar(0, 255, 0);
+			Scalar color2 = Scalar(0, 0, 255);
+			drawContours(drawing, contours_poly, (int)i, color, 1, 8, vector<Vec4i>(), 0, Point());
 
 			// Set min size threshold
 
-			cv::Point tl = boundRect[i].tl();
-			cv::Point br = boundRect[i].br();
+			Point tl = boundRect[i].tl();
+			Point br = boundRect[i].br();
 
 			int xDst = abs(br.x - tl.x);
 			int yDst = abs(tl.y - br.y);
 
-			if(xDst >= 12 && yDst >= 12){
-				cv::rectangle(frame, tl, br, color2, 2, 8, 0);
-				//cv::circle(frame, center[i], (int)radius[i], color, 2, 8, 0);
+			if(xDst >= MIN_THRES && yDst >= MIN_THRES){
+				rectangle(frame, tl, br, color2, 2, 8, 0);
+				//circle(frame, center[i], (int)radius[i], color, 2, 8, 0);
 			}
   		}
 
 		// --- Show frame 
 
-		cv::imshow("raw", frame);
-		//cv::imshow("processed", procFrame);
-		cv::imshow("mask", fgMaskMOG2);
-		cv::imshow("drawing", drawing);
+		imshow("raw", frame);
+		//imshow("processed", procFrame);
+		imshow("mask", fgMaskMOG2);
+		imshow("contours", drawing);
 
 		// --- Timing stuff
 
 		if(frameNum % 30 == 0){
 			milliseconds now = duration_cast<milliseconds>(system_clock::now().time_since_epoch());
-			printf("%d\n", (now - t0) / 30);
+			printf("%d ms\n", (now - t0) / 30);
 			t0 = now;
 		}
 
-		cv::waitKey(10);
+		waitKey(1);
 	}
 }
 
@@ -412,9 +423,9 @@ void processStream(){
 		pMOG2->apply(frame, fgMaskMOG2);
 
 		// Get frame number and write to frame
-		rectangle(fgMaskMOG2, cv::Point(10, 2), cv::Point(100,20), cv::Scalar(255,255,255), -1);
+		rectangle(fgMaskMOG2, Point(10, 2), Point(100,20), Scalar(255,255,255), -1);
         sprintf(frameNumberString, "%d", frameNumber);
-		putText(fgMaskMOG2, frameNumberString, cv::Point(15,15), FONT_HERSHEY_SIMPLEX, 0.5, cv::Scalar(0,0,0));
+		putText(fgMaskMOG2, frameNumberString, Point(15,15), FONT_HERSHEY_SIMPLEX, 0.5, Scalar(0,0,0));
 
 		// Show current frame and the fg masks
 		imshow("Frame", frame);

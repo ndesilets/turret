@@ -5,7 +5,7 @@
             "includePath": [],
             "defines": [],
             "browse": {
-                "path": ["/usr/include", "/usr/local/include"],
+                "path": [],
                 "limitSymbolsToIncludedHeaders": true,
                 "databaseFilename": ""
             },
